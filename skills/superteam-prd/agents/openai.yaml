@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam PRD"
+  short_description: "Write or revise a current product contract"
+policy:
+  allow_implicit_invocation: false

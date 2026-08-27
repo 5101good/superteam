@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Docs"
+  short_description: "Audit and update explicitly selected Project knowledge"
+policy:
+  allow_implicit_invocation: false

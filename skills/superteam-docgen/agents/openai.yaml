@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Docgen"
+  short_description: "Generate explicitly requested Project knowledge drafts"
+policy:
+  allow_implicit_invocation: false

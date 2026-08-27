@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Build"
+  short_description: "Run a Repository Set feature"
+policy:
+  allow_implicit_invocation: false

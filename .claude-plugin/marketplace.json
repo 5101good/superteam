@@ -1,0 +1,19 @@
+{
+  "name": "superteam",
+  "owner": {
+    "name": "Superteam Contributors"
+  },
+  "metadata": {
+    "description": "Coordinate AI teams across complex, multi-repository software projects.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "superteam",
+      "source": "./",
+      "description": "Coordinate AI teams across complex, multi-repository software projects.",
+      "category": "workflow",
+      "tags": ["multi-agent", "multi-repository", "workflow", "git"]
+    }
+  ]
+}

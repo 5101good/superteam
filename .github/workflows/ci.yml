@@ -1,0 +1,45 @@
+name: release-gate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Bats on macOS
+        if: runner.os == 'macOS'
+        run: brew install bats-core
+
+      - name: Install Bats on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats lsof
+
+      - name: Install pinned Host CLIs for discovery checks
+        shell: bash
+        run: |
+          npm install -g \
+            @openai/codex@0.144.5 \
+            @anthropic-ai/claude-code@2.1.233 \
+            @qoder-ai/qodercli@1.1.14
+
+      - name: Run the shared release gate
+        shell: bash
+        run: bash scripts/st-release-gate.sh .

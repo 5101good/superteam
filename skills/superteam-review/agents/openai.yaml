@@ -1,0 +1,4 @@
+interface:
+  display_name: "Superteam Review"
+  short_description: "Review fixed-base changes on two independent axes."
+  default_prompt: "Use $superteam-review to review this worktree from the supplied fixed base."

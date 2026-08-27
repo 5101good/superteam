@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Board"
+  short_description: "Show local feature and ticket status"
+policy:
+  allow_implicit_invocation: true

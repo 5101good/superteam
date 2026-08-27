@@ -1,0 +1,24 @@
+{
+  "name": "superteam",
+  "version": "1.0.0",
+  "author": {
+    "name": "Superteam Contributors"
+  },
+  "interface": {
+    "displayName": "Superteam"
+  },
+  "plugins": [
+    {
+      "name": "superteam",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}

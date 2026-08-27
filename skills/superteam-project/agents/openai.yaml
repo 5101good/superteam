@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Project"
+  short_description: "Inspect or manage a Git-backed Superteam Project."
+policy:
+  allow_implicit_invocation: false

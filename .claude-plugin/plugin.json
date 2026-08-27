@@ -1,0 +1,9 @@
+{
+  "name": "superteam",
+  "version": "1.0.0",
+  "description": "Coordinate AI teams across complex, multi-repository software projects.",
+  "author": {
+    "name": "Superteam Contributors"
+  },
+  "skills": "./skills/"
+}

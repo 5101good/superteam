@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Spec"
+  short_description: "Write or revise a current technical contract"
+policy:
+  allow_implicit_invocation: false

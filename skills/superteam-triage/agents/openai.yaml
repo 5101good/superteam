@@ -1,0 +1,6 @@
+interface:
+  display_name: "Superteam Triage"
+  short_description: "Verify external input and return a read-only Triage Brief"
+  default_prompt: "Use $superteam-triage to verify this external input and return a read-only Triage Brief."
+policy:
+  allow_implicit_invocation: false

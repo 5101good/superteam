@@ -1,0 +1,4 @@
+interface:
+  display_name: "Superteam TDD"
+  short_description: "Develop behavior through public-seam red-green loops."
+  default_prompt: "Use $superteam-tdd to implement this behavior test-first at its public seam."

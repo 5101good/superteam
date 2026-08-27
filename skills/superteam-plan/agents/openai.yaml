@@ -1,0 +1,5 @@
+interface:
+  display_name: "Superteam Plan"
+  short_description: "Write or revise an atomic ticket DAG"
+policy:
+  allow_implicit_invocation: true

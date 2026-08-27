@@ -1,0 +1,3 @@
+interface:
+  display_name: "Using Superteam"
+  short_description: "Route work to a Superteam workflow or project action."

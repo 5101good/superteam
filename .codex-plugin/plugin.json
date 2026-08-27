@@ -1,0 +1,29 @@
+{
+  "name": "superteam",
+  "version": "1.0.0",
+  "description": "Coordinate AI teams across complex, multi-repository software projects.",
+  "author": {
+    "name": "Superteam Contributors"
+  },
+  "keywords": [
+    "multi-agent",
+    "multi-repository",
+    "workflow",
+    "planning",
+    "code-review",
+    "project-management"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Superteam",
+    "shortDescription": "Coordinate AI teams across repositories.",
+    "longDescription": "Plan, parallelize, review, and deliver complex software changes across one or many Git repositories.",
+    "developerName": "Superteam Contributors",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Use $superteam:using-superteam to choose the right workflow.",
+      "Use $superteam:superteam-project to inspect or initialize this project."
+    ]
+  }
+}
