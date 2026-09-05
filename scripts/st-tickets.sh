@@ -162,6 +162,10 @@ ticket_for_id() {
 
 validate_result_evidence() {
   local ticket=$1 status=$2
+  if [ "$status" = resolved ]; then
+    validate_successful_result "$ticket" ticket
+    return $?
+  fi
   awk '
     /^## Result[[:space:]]*$/ { active = 1; next }
     active && /[^[:space:]]/ { found = 1 }
@@ -170,6 +174,10 @@ validate_result_evidence() {
     fail "$status ticket is missing Result evidence: $ticket"
     return 1
   }
+}
+
+validate_successful_result() {
+  LC_ALL=C awk -v document="$2" -f "$SCRIPT_DIR/lib/result.awk" "$1"
 }
 
 validate_commit_evidence() {
@@ -549,7 +557,6 @@ feature_result_is_terminal() {
   local result branch head relative blob current_blob blob_type
   result=$FEATURE_PATH/result.md
   [ ! -L "$result" ] && [ -f "$result" ] && [ -s "$result" ] || return 1
-  LC_ALL=C grep -Eq '^Outcome:[[:space:]]+DONE[[:space:]]*$' "$result" || return 1
   branch=$(feature_result_branch) || return 1
   isolated_git -C "$FEATURE_ROOT" check-ref-format --branch "$branch" >/dev/null 2>&1 || return 1
   head=$(isolated_git -C "$FEATURE_ROOT" rev-parse --verify "refs/heads/$branch^{commit}" 2>/dev/null) || return 1
@@ -561,7 +568,8 @@ feature_result_is_terminal() {
   blob_type=$(isolated_git -C "$FEATURE_ROOT" cat-file -t "$blob" 2>/dev/null) || return 1
   [ "$blob_type" = blob ] || return 1
   current_blob=$(isolated_git -C "$FEATURE_ROOT" hash-object -- "$result" 2>/dev/null) || return 1
-  [ "$current_blob" = "$blob" ]
+  [ "$current_blob" = "$blob" ] || return 1
+  validate_successful_result "$result" feature
 }
 
 command=${1:-}
@@ -761,7 +769,16 @@ case "$command" in
     feature=$(ticket_feature "$ticket")
     project_facts_for_feature "$feature"
     begin_ticket_mutation
-    validate_ticket "$ticket"
+    # Validate stable ticket facts without requiring the old Result to pass.
+    # replace-result validates the assembled candidate under its writer lock.
+    validate_ticket "$ticket" true false
+    if [ "$(ticket_status "$ticket")" = resolved ]; then
+      [ -n "$(bash "$FRONTMATTER" get "$ticket" resolved_at)" ] || {
+        fail "resolved ticket is missing resolved_at: $ticket"
+        exit 3
+      }
+      validate_resolved_git_evidence "$ticket" || exit 3
+    fi
     bash "$FRONTMATTER" replace-result "$ticket" "$result"
     release_feature_lock
     printf '%s\n' "$ticket"

@@ -129,6 +129,10 @@ During Build, Superteam coordinates the ready tickets, gives each delivery unit
 its complete repository set, keeps review and fixes inside that unit, and
 records the final result in the root repository.
 
+Completion requires a valid [Result summary](skills/superteam-implement/result-format.md)
+and Git evidence. Existing Results without the summary need their evidence
+checked and the summary added before they count as complete.
+
 ## Update project repositories
 
 When you explicitly ask Superteam to pull the project, it checks the root first

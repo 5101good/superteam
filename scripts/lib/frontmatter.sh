@@ -293,6 +293,9 @@ ticket_result_shape_is_valid() {
     fail 'ticket must contain exactly one Result section.'
     return 1
   }
+  if [ "$(run_parser get ticket "$candidate" -v query=status)" = resolved ]; then
+    LC_ALL=C awk -v document=ticket -f "$SCRIPT_DIR/result.awk" "$candidate" || return 1
+  fi
 }
 
 render_update() {

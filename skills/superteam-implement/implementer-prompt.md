@@ -54,7 +54,9 @@ still open; do not start a sixth round.
 
 ## Return a structured Result
 
-Write the structured Result only to `{RESULT_OUTPUT_PATH}`. Include:
+Write the structured Result only to `{RESULT_OUTPUT_PATH}`, starting with the
+three-field [completion summary](result-format.md). Keep the evidence body
+free-form. Include:
 
 - observable outcome and acceptance evidence;
 - each Repository ID, real root, fixed base, local commits, and exact changed files;

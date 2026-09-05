@@ -159,7 +159,8 @@ stable recovery facts and return to the frontier loop. Do not write a terminal
 feature Result for a recoverable evidence gap. Only `DONE` or an
 evidence-backed `BLOCKED` proposal may continue to terminal tracking.
 
-On success, create `result.md` in a stable tracking worktree with outcome
+On success, create `result.md` in a stable tracking worktree with the finalizer's
+validated [completion summary](../superteam-implement/result-format.md), outcome
 `DONE`, completion time, canonical root base and head, ticket Result summary,
 full-verification evidence, finalizer report, retries, and remaining concerns.
 Stage and commit exactly the feature tracking directory, then compare-and-swap

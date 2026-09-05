@@ -73,9 +73,10 @@ partial Result. A second incomplete session blocks the ticket with evidence.
 
 ## Validate and integrate
 
-1. Validate the structured Result, focused and green verification, each
-   Repository's ticket commit and changed-file list, clean worktrees, separate
-   Standards and Spec verdicts, and every finding disposition. Standalone mode
+1. Validate the Result's [completion summary](result-format.md), focused and
+   green verification, each Repository's ticket commit and changed-file list,
+   clean worktrees, separate Standards and Spec verdicts, and every finding
+   disposition. Standalone mode
    also requires the agreed full verification once; Build may defer
    feature-wide verification to its finalizer.
 2. Create a state path outside every Repository worktree, then run

@@ -26,7 +26,7 @@ explicit invocation. Do not silently continue into a downstream workflow.
 | Implement one ready ticket | `superteam-implement` | One ticket's implementation, independent review, fixes, and integration result |
 | Verify an external bug, pull request, or enhancement | `superteam-triage` | A self-contained read-only Triage Brief |
 | Show feature or ticket status | `superteam-board` | Read-only state derived from Current Contracts and tickets |
-| Resolve one consequential unknown | `superteam-grilling` | One contract-changing decision at a time |
+| Resolve consequential unknowns | `superteam-grilling` | Answers to the contract-changing decisions that can be asked now |
 | Maintain vocabulary or a durable decision | `superteam-domain-modeling` | An immediate Repository Context or scoped ADR update |
 | Develop agreed behavior test-first | `superteam-tdd` | Public-seam red-green-refactor slices |
 | Review a fixed-base Repository change | `superteam-review` | Separate Standards and Spec reports |

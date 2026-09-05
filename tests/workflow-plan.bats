@@ -177,7 +177,8 @@ record_api_integration_evidence() {
   bash "$TICKETS" claim "$active" --owner worker >/dev/null
   bash "$TICKETS" claim "$delivered" --owner worker >/dev/null
   result="$BATS_TEST_TMPDIR/result.md"
-  printf '%s\n' 'Outcome: delivered' 'Tests: passed' 'Reviews: passed' > "$result"
+  printf '%s\n' 'Outcome: DONE' 'Verification: PASS' 'Verification exit codes: 0' \
+    '' 'Tests and reviews passed.' > "$result"
   bash "$TICKETS" write-result "$delivered" "$result" >/dev/null
   record_api_integration_evidence "$delivered"
   bash "$TICKETS" resolve "$delivered" >/dev/null
@@ -195,7 +196,7 @@ record_api_integration_evidence() {
   [[ "$output" == *"ADDED: 03"* ]]
   [ "$(cksum "$active")" = "$active_before" ]
   [ "$(cksum "$delivered")" = "$delivered_before" ]
-  grep -q 'Outcome: delivered' "$delivered"
+  grep -q 'Outcome: DONE' "$delivered"
   bash "$TICKETS" validate "$FEATURE"
 }
 

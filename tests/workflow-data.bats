@@ -62,6 +62,11 @@ EOF
     --repositories root --blocked-by "$blockers" --body-file "$body"
 }
 
+write_success_result() {
+  printf '%s\n' 'Outcome: DONE' 'Verification: PASS' \
+    'Verification exit codes: 0,0' '' 'Tests and independent reviews passed.' > "$1"
+}
+
 make_integration_history() {
   local repository=$1 feature_branch=$2 ticket_branch=$3 tree
   if ! git -C "$repository" rev-parse 'HEAD^{commit}' >/dev/null 2>&1; then
@@ -285,7 +290,7 @@ EOF
   [ "$output" = "$first" ]
 
   result="$BATS_TEST_TMPDIR/result.md"
-  printf '%s\n' 'Outcome: delivered' 'Tests: pass' 'Reviews: standards and spec passed' > "$result"
+  write_success_result "$result"
   bash "$TICKETS" claim "$first" --owner worker >/dev/null
   [ "$(bash "$FRONTMATTER" get "$first" status)" = claimed ]
   [ "$(bash "$FRONTMATTER" get "$first" claimed_by)" = worker ]
@@ -307,7 +312,7 @@ EOF
   first="$(new_ticket 01 "Evidence source")"
   second="$(new_ticket 02 "Dependent slice" 01)"
   result="$BATS_TEST_TMPDIR/result.md"
-  printf '%s\n' 'Outcome: prose is not Git evidence' > "$result"
+  write_success_result "$result"
   bash "$TICKETS" claim "$first" --owner worker >/dev/null
   bash "$TICKETS" write-result "$first" "$result" >/dev/null
 
@@ -418,7 +423,7 @@ EOF
   ticket=$(bash "$TICKETS" new "$FEATURE" --id 01 --title "Multi Repository" \
     --repositories root,api --body-file "$body")
   result="$BATS_TEST_TMPDIR/multi-result.md"
-  printf '%s\n' 'Outcome: delivered' > "$result"
+  write_success_result "$result"
   bash "$TICKETS" claim "$ticket" --owner worker >/dev/null
   bash "$TICKETS" write-result "$ticket" "$result" >/dev/null
 
@@ -532,7 +537,7 @@ EOF
   [[ "$output" == BLOCKED* ]]
 
   result="$BATS_TEST_TMPDIR/result.md"
-  printf '%s\n' 'Outcome: delivered' > "$result"
+  write_success_result "$result"
   bash "$TICKETS" write-result "$first" "$result" >/dev/null
   record_root_integration_evidence "$first"
   bash "$TICKETS" resolve "$first" >/dev/null
@@ -544,6 +549,11 @@ EOF
   run bash "$TICKETS" feature-status "$FEATURE"
   [[ "$output" == READY* ]]
 
+  record_terminal_feature_result
+  run bash "$TICKETS" feature-status "$FEATURE"
+  [[ "$output" == *READY* ]]
+
+  write_success_result "$FEATURE/result.md"
   record_terminal_feature_result
   run bash "$TICKETS" feature-status "$FEATURE"
   [[ "$output" == DONE* ]]
@@ -560,6 +570,161 @@ EOF
   run bash "$TICKETS" feature-status "$spec_only"
   [ "$status" -eq 0 ]
   [[ "$output" == SPEC* ]]
+}
+
+@test "failed completion summaries preserve state and never unlock dependencies" {
+  mkdir -p "$FEATURE"
+  write_contract "$FEATURE/spec.md" Spec
+  first="$(new_ticket 01 "Summary source")"
+  second="$(new_ticket 02 "Dependent slice" 01)"
+  bash "$TICKETS" claim "$first" --owner worker >/dev/null
+  record_root_integration_evidence "$first"
+  result="$BATS_TEST_TMPDIR/result.md"
+
+  for summary in \
+    $'Outcome: BLOCKED\nVerification: FAIL\nVerification exit codes: 1' \
+    $'Outcome: DONE\nVerification: FAIL\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification: PASS\nVerification exit codes: 0,1' \
+    $'Outcome: DONE\nVerification: NOT_RUN\nVerification exit codes: NONE' \
+    $'Outcome: DONE\nVerification: UNKNOWN\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification: PASS\nVerification exit codes: NONE' \
+    $'Outcome: DONE\nVerification: PASS\nVerification exit codes: 0,,0' \
+    $'Verification: PASS\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification: PASS' \
+    $'Outcome: DONE\nOutcome: BLOCKED\nVerification: PASS\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification: PASS\nVerification: FAIL\nVerification exit codes: 0' \
+    $'Outcome: DONE\nVerification: PASS\nVerification exit codes: 0\nVerification exit codes: 1'; do
+    printf '%s\n' "$summary" > "$result"
+    bash "$TICKETS" write-result "$first" "$result" >/dev/null
+    before="$(cksum "$first")"
+    before_head="$(git -C "$PROJECT_ROOT" rev-parse refs/heads/superteam/100-example)"
+    run bash "$TICKETS" resolve "$first"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"completion summary"* ]]
+    [ "$(cksum "$first")" = "$before" ]
+    [ "$(git -C "$PROJECT_ROOT" rev-parse refs/heads/superteam/100-example)" = "$before_head" ]
+    run bash "$TICKETS" frontier "$FEATURE"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+  done
+}
+
+@test "successful final verification allows historical RED failures in free prose" {
+  mkdir -p "$FEATURE"
+  write_contract "$FEATURE/spec.md" Spec
+  first="$(new_ticket 01 "Historical evidence")"
+  second="$(new_ticket 02 "Dependent slice" 01)"
+  bash "$TICKETS" claim "$first" --owner worker >/dev/null
+  record_root_integration_evidence "$first"
+  result="$BATS_TEST_TMPDIR/result.md"
+  write_success_result "$result"
+  printf '%s\n' '' '## Original RED observation' 'Outcome: BLOCKED' \
+    'Verification: FAIL' 'Verification exit codes: 1' \
+    'The regression failed before the fix; the final checks above passed.' >> "$result"
+  bash "$TICKETS" write-result "$first" "$result" >/dev/null
+  run bash "$TICKETS" resolve "$first"
+  [ "$status" -eq 0 ]
+  run bash "$TICKETS" frontier "$FEATURE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$second" ]
+}
+
+@test "not applicable verification requires NONE and an explanatory body" {
+  mkdir -p "$FEATURE"
+  write_contract "$FEATURE/spec.md" Spec
+  first="$(new_ticket 01 "Documentation decision")"
+  bash "$TICKETS" claim "$first" --owner worker >/dev/null
+  record_root_integration_evidence "$first"
+  result="$BATS_TEST_TMPDIR/result.md"
+  printf '%s\n' 'Outcome: DONE' 'Verification: NOT_APPLICABLE' \
+    'Verification exit codes: NONE' > "$result"
+  bash "$TICKETS" write-result "$first" "$result" >/dev/null
+  run bash "$TICKETS" resolve "$first"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"explanation"* ]]
+  printf '\n%s\n' 'Only a manually checked decision record changed; no verification command applies.' >> "$result"
+  sed 's/exit codes: NONE/exit codes: 0/' "$result" > "$result.invalid"
+  bash "$TICKETS" write-result "$first" "$result.invalid" >/dev/null
+  run bash "$TICKETS" resolve "$first"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"NONE"* ]]
+  bash "$TICKETS" write-result "$first" "$result" >/dev/null
+  run bash "$TICKETS" resolve "$first"
+  [ "$status" -eq 0 ]
+}
+
+@test "forged resolved results fail closed and old results can be repaired atomically" {
+  mkdir -p "$FEATURE"
+  write_contract "$FEATURE/spec.md" Spec
+  first="$(new_ticket 01 "Legacy result")"
+  second="$(new_ticket 02 "Dependent slice" 01)"
+  bash "$TICKETS" claim "$first" --owner worker >/dev/null
+  record_root_integration_evidence "$first"
+  result="$BATS_TEST_TMPDIR/result.md"
+  printf '%s\n' 'Outcome: delivered' > "$result"
+  bash "$TICKETS" write-result "$first" "$result" >/dev/null
+  bash "$FRONTMATTER" set "$first" resolved_at '2026-09-05T12:00:00+0000'
+  bash "$FRONTMATTER" set "$first" status resolved
+  before="$(cksum "$first")"
+  for command in validate frontier; do
+    run bash "$TICKETS" "$command" "$FEATURE"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"completion summary"* ]]
+    [[ "$output" != *"$second"* ]]
+  done
+  run bash "$BOARD" --project "$PROJECT_ROOT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *INVALID* ]]
+  [[ "$output" != *DONE* ]]
+  [ "$(cksum "$first")" = "$before" ]
+
+  printf '%s\n' 'Outcome: BLOCKED' 'Verification: FAIL' 'Verification exit codes: 1' > "$result"
+  run bash "$TICKETS" write-result "$first" "$result"
+  [ "$status" -ne 0 ]
+  [ "$(cksum "$first")" = "$before" ]
+  [ -z "$(find "$FEATURE" -name '*.superteam-write.*' -print)" ]
+
+  write_success_result "$result"
+  run bash "$TICKETS" write-result "$first" "$result"
+  [ "$status" -eq 0 ]
+  run bash "$TICKETS" frontier "$FEATURE"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$second" ]
+  before="$(cksum "$first")"
+  printf '%s\n' 'Outcome: BLOCKED' > "$result"
+  run bash "$FRONTMATTER" replace-result "$first" "$result"
+  [ "$status" -ne 0 ]
+  [ "$(cksum "$first")" = "$before" ]
+}
+
+@test "committed feature results require the same successful summary as tickets" {
+  mkdir -p "$FEATURE"
+  write_contract "$FEATURE/spec.md" Spec
+  first="$(new_ticket 01 "Feature verification")"
+  bash "$TICKETS" claim "$first" --owner worker >/dev/null
+  record_root_integration_evidence "$first"
+  result="$BATS_TEST_TMPDIR/result.md"
+  write_success_result "$result"
+  bash "$TICKETS" write-result "$first" "$result" >/dev/null
+  bash "$TICKETS" resolve "$first" >/dev/null
+  for summary in \
+    'Outcome: DONE' \
+    $'Outcome: BLOCKED\nVerification: FAIL\nVerification exit codes: 1' \
+    $'Outcome: DONE\nVerification: PASS\nVerification exit codes: 1' \
+    $'Outcome: DONE\nVerification: PASS\nVerification: FAIL\nVerification exit codes: 0'; do
+    printf '%s\n' '# Feature Result' '' "$summary" > "$FEATURE/result.md"
+    record_terminal_feature_result
+    run bash "$TICKETS" feature-status "$FEATURE"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *READY* ]]
+    [[ "$output" != DONE* ]]
+  done
+  { printf '%s\n' '# Feature Result' ''; cat "$result"; } > "$FEATURE/result.md"
+  record_terminal_feature_result
+  run bash "$TICKETS" feature-status "$FEATURE"
+  [ "$status" -eq 0 ]
+  [[ "$output" == DONE* ]]
 }
 
 @test "Board reads custom task state without changing files or the Git index" {

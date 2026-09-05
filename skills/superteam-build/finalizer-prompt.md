@@ -30,7 +30,9 @@ Implement unit already owns independent Standards and Spec review, fixes, and
 scoped re-review. If code, contract, or evidence is incomplete, identify the
 ticket and fact that must be requeued or the external authority that is needed.
 
-Write a structured report only to `{FINALIZATION_REPORT_PATH}` with:
+Write a structured report only to `{FINALIZATION_REPORT_PATH}`, starting with
+the [completion summary](../superteam-implement/result-format.md) for the final
+feature verification, followed by free-form evidence with:
 
 - proposed outcome `DONE`, `REQUEUE`, or `BLOCKED`;
 - Current Contract and acceptance evidence;
