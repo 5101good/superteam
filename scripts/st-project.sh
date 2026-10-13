@@ -1010,17 +1010,6 @@ directory_is_empty() {
   return 0
 }
 
-has_direct_git_root() {
-  for entry in "$1"/* "$1"/.[!.]* "$1"/..?*; do
-    [ -d "$entry" ] || continue
-    reject_line_breaks "$entry" 'candidate path' || continue
-    physical=$(cd -P -- "$entry" && pwd -P) || continue
-    candidate_root=$(git_root_for "$physical" 2>/dev/null || true)
-    [ "$candidate_root" = "$physical" ] && return 0
-  done
-  return 1
-}
-
 next_path_component() {
   NEXT_COMPONENT=$(printf '%s\n' "$1" | sed 's,/.*,,')
   case "$1" in
@@ -1680,14 +1669,23 @@ apply_repository_files() {
   }
 }
 
+resolve_repository_command_root() {
+  repository_command_location=$(resolve_directory "$1") || return 1
+  REPOSITORY_ROOT=$(git_root_for "$repository_command_location" 2>/dev/null || true)
+  [ -n "$REPOSITORY_ROOT" ] || { fail "repository $2 requires an initialized Root Repository."; return 1; }
+  REPOSITORY_ROOT=$(resolve_directory "$REPOSITORY_ROOT") || return 1
+}
+capture_repository_plan_state() {
+  REPOSITORY_DESIRED_MANIFEST=$(render_manifest)
+  REPOSITORY_MANIFEST_FINGERPRINT=$(file_fingerprint "$REPOSITORY_ROOT/superteam.yaml") || return 1
+  REPOSITORY_ROOT_IDENTITY=$(directory_identity_for "$REPOSITORY_ROOT") || return 1
+  REPOSITORY_IGNORE_PLAN_STATE=$(path_plan_state "$REPOSITORY_ROOT/.gitignore") || return 1
+}
 preflight_repository_add() {
   repository_add_directory=$1
   repository_add_id=$2
   repository_add_input=$3
-  repository_add_location=$(resolve_directory "$repository_add_directory") || return 1
-  REPOSITORY_ROOT=$(git_root_for "$repository_add_location" 2>/dev/null || true)
-  [ -n "$REPOSITORY_ROOT" ] || { fail 'repository add requires an initialized Root Repository.'; return 1; }
-  REPOSITORY_ROOT=$(resolve_directory "$REPOSITORY_ROOT") || return 1
+  resolve_repository_command_root "$repository_add_directory" add || return 1
   [ -e "$REPOSITORY_ROOT/superteam.yaml" ] || { fail 'Project is not initialized; run superteam-project init first.'; return 1; }
   parse_manifest "$REPOSITORY_ROOT" || return 1
   validate_registered_repository_roots "$REPOSITORY_ROOT" || return 1
@@ -1727,11 +1725,11 @@ preflight_repository_add() {
       else
         if [ -e "$REPOSITORY_ROOT/.gitignore" ] || [ -L "$REPOSITORY_ROOT/.gitignore" ]; then
           [ ! -L "$REPOSITORY_ROOT/.gitignore" ] && [ -f "$REPOSITORY_ROOT/.gitignore" ] || { fail '.gitignore must be a regular file before adding a managed ignore rule.'; return 1; }
-          managed_ignore_marker_exists "$REPOSITORY_ROOT/.gitignore" "$REPOSITORY_IGNORE_MARKER" && { fail 'the managed .gitignore marker already exists without a matching repository binding.'; return 1; }
           repository_no_eof_marker=$(managed_ignore_no_newline_marker "$repository_add_id")
-          managed_ignore_marker_exists "$REPOSITORY_ROOT/.gitignore" "$repository_no_eof_marker" && { fail 'the managed .gitignore marker already exists without a matching repository binding.'; return 1; }
           repository_empty_file_marker=$(managed_ignore_empty_file_marker "$repository_add_id")
-          managed_ignore_marker_exists "$REPOSITORY_ROOT/.gitignore" "$repository_empty_file_marker" && { fail 'the managed .gitignore marker already exists without a matching repository binding.'; return 1; }
+          for repository_existing_marker in "$REPOSITORY_IGNORE_MARKER" "$repository_no_eof_marker" "$repository_empty_file_marker"; do
+            managed_ignore_marker_exists "$REPOSITORY_ROOT/.gitignore" "$repository_existing_marker" && { fail 'the managed .gitignore marker already exists without a matching repository binding.'; return 1; }
+          done
           if [ ! -s "$REPOSITORY_ROOT/.gitignore" ]; then
             REPOSITORY_IGNORE_PREVIOUS_EMPTY=true
             REPOSITORY_IGNORE_MARKER=$repository_empty_file_marker
@@ -1748,10 +1746,7 @@ preflight_repository_add() {
   fi
   MANIFEST_REPOSITORY_IDS[${#MANIFEST_REPOSITORY_IDS[@]}]=$repository_add_id
   MANIFEST_REPOSITORY_PATHS[${#MANIFEST_REPOSITORY_PATHS[@]}]=$REPOSITORY_MANIFEST_PATH
-  REPOSITORY_DESIRED_MANIFEST=$(render_manifest)
-  REPOSITORY_MANIFEST_FINGERPRINT=$(file_fingerprint "$REPOSITORY_ROOT/superteam.yaml") || return 1
-  REPOSITORY_ROOT_IDENTITY=$(directory_identity_for "$REPOSITORY_ROOT") || return 1
-  REPOSITORY_IGNORE_PLAN_STATE=$(path_plan_state "$REPOSITORY_ROOT/.gitignore") || return 1
+  capture_repository_plan_state || return 1
   prepare_repository_add_plan "$repository_add_id" "$repository_add_input" || return 1
 }
 
@@ -1847,10 +1842,7 @@ repository_add() {
 preflight_repository_remove() {
   repository_remove_directory=$1
   repository_remove_id=$2
-  repository_remove_location=$(resolve_directory "$repository_remove_directory") || return 1
-  REPOSITORY_ROOT=$(git_root_for "$repository_remove_location" 2>/dev/null || true)
-  [ -n "$REPOSITORY_ROOT" ] || { fail 'repository remove requires an initialized Root Repository.'; return 1; }
-  REPOSITORY_ROOT=$(resolve_directory "$REPOSITORY_ROOT") || return 1
+  resolve_repository_command_root "$repository_remove_directory" remove || return 1
   parse_manifest "$REPOSITORY_ROOT" || return 1
   validate_repository_id "$repository_remove_id" || return 1
   repository_remove_found=false
@@ -1910,10 +1902,7 @@ preflight_repository_remove() {
     MANIFEST_REPOSITORY_PATHS[${#MANIFEST_REPOSITORY_PATHS[@]}]=${repository_remaining_paths[$repository_remaining_index]}
     repository_remaining_index=$((repository_remaining_index + 1))
   done
-  REPOSITORY_DESIRED_MANIFEST=$(render_manifest)
-  REPOSITORY_MANIFEST_FINGERPRINT=$(file_fingerprint "$REPOSITORY_ROOT/superteam.yaml") || return 1
-  REPOSITORY_ROOT_IDENTITY=$(directory_identity_for "$REPOSITORY_ROOT") || return 1
-  REPOSITORY_IGNORE_PLAN_STATE=$(path_plan_state "$REPOSITORY_ROOT/.gitignore") || return 1
+  capture_repository_plan_state || return 1
   prepare_repository_remove_plan "$repository_remove_id" || return 1
 }
 
@@ -3889,31 +3878,6 @@ verify_final_asset_boundaries() {
   verify_final_asset_boundary "$INIT_KNOWLEDGE" knowledge || return 1
   verify_owned_asset_readme "$INIT_TASK" task "$INIT_TASK_EXISTING" || return 1
   verify_owned_asset_readme "$INIT_KNOWLEDGE" knowledge "$INIT_KNOWLEDGE_EXISTING" || return 1
-}
-
-verify_published_asset_readme() {
-  relative=$1
-  label=$2
-  existing=$3
-  expected_fingerprint=$4
-  [ "$existing" = false ] || return 0
-  [ -n "$expected_fingerprint" ] || {
-    fail "could not verify the new $label README after finalization."
-    return 1
-  }
-  published_readme=$INIT_ROOT/$relative/README.md
-  [ ! -L "$published_readme" ] && [ -f "$published_readme" ] || {
-    fail "${label} README changed during finalization; no successful result was reported."
-    return 1
-  }
-  published_readme_fingerprint=$(file_fingerprint "$published_readme") || {
-    fail "${label} README changed during finalization; no successful result was reported."
-    return 1
-  }
-  [ "$published_readme_fingerprint" = "$expected_fingerprint" ] || {
-    fail "${label} README changed during finalization; no successful result was reported."
-    return 1
-  }
 }
 
 metadata_gitignore_is_current() {
