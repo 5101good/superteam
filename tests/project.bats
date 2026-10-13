@@ -934,6 +934,8 @@ EOF
   printf '%s\n' unrelated > "$parent/unrelated.txt"
   run bash "$PROJECT" init "$parent" --task task --knowledge knowledge --apply
   [ "$status" -eq 0 ]
+  git -C "$parent" config user.name 'Fixture Contributor'
+  git -C "$parent" config user.email 'fixture@invalid'
   real_git="$(command -v git)"
   shim_dir="$BATS_TEST_TMPDIR/bin-failed-initialization-commit"
   mkdir "$shim_dir"
