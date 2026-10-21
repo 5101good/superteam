@@ -1,6 +1,6 @@
 # Releasing Superteam
 
-This checklist prepares a local `1.0.0` release candidate. It does not create
+This checklist prepares a local `1.1.0` release candidate. It does not create
 or modify a remote, push a branch, open a pull request, publish a marketplace
 entry, or send a message.
 
@@ -38,7 +38,7 @@ tested Linux contract; native Windows shells are outside the support boundary.
 
 ## Evidence checklist
 
-- All manifests and marketplace metadata say `superteam`, `1.0.0`, and
+- All manifests and marketplace metadata say `superteam`, `1.1.0`, and
   `Superteam Contributors`; public project links point to
   `https://github.com/5101good/superteam`.
 - `README.md` and `README.zh-CN.md` remain mutually linked and describe the

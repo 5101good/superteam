@@ -6,182 +6,99 @@ disable-model-invocation: true
 
 # Superteam Build
 
-Build is the unattended controller for one existing feature. It schedules work,
-validates terminal evidence, and advances feature state. It does not implement,
-review, repair, or integrate ticket code.
+Build is the unattended controller for one existing feature. It schedules
+`superteam-implement` units, validates their terminal evidence, and advances
+feature state. Each Implement unit owns its own implementation, review, fixes,
+and integration; the controller does not review or integrate ticket code.
 
-## Establish the executable feature
+## Start or resume
 
-1. Resolve the Root Repository, custom task path, custom knowledge path, and
-   feature directory from a validated Project Snapshot. Require an existing
-   Current Contract and an existing `tickets/` directory. Do not create or
-   revise a PRD, Spec, Plan, or ticket breakdown from Build.
-2. Run `st-tickets.sh validate <feature>`. For every frontier ticket, run
-   `st-repository-workflow.sh repositories <ticket>` and require every declared
-   stable Repository ID to resolve again to its exact real Git root. The
-   Project order is `root` first followed by manifest order; root-only is the
-   one-member case. Never reinterpret a monorepo directory as a Repository.
-3. Treat every schema-valid PRD or Spec as current as written, and every
-   `ready-for-agent` ticket as schedulable when its blockers are resolved. Do
-   not require a PRD, Spec, or Plan status gate.
-4. Do not run Project Pull. Build starts from the local Repository and ticket
-   facts the user explicitly placed in scope; it does not contact or update a remote.
+1. Resolve the Root Repository, task path, knowledge path, and feature from a
+   validated Project Snapshot. The feature must already have a Current Contract
+   and `tickets/`; Build does not write a PRD, Spec, or Plan.
+2. Run `st-tickets.sh validate <feature>`. For each frontier ticket, run
+   `st-repository-workflow.sh repositories <ticket>` so every declared
+   Repository ID resolves to its real Git root.
+3. Acquire the feature lease with
+   `st-integrate.sh lease-acquire <root> <feature-key> --owner <owner>` and
+   refresh it with `lease-heartbeat` at least every 60 seconds and around each
+   dispatch round. An active lease held by another owner means `BUSY`. A lease
+   whose heartbeat is older than 300 seconds can be taken over with
+   `lease-recover --expected-owner <old-owner> --stale-after 300`; a controller
+   whose heartbeat reports a new owner stops.
+4. On resume, trust ticket files, Results, and real Git history over the
+   ledger: a `resolved` ticket without its Result and a reachable integrated
+   head is not complete. A promoted head whose tracking Result was interrupted
+   resumes through the same Implement unit rather than being implemented again.
 
-## Own one controller lease and ledger
+## Controller ledger
 
-Derive one unique owner token for a new Build invocation. Acquire the feature
-lease with:
-
-```text
-st-integrate.sh lease-acquire <root> <feature-key> --owner <owner>
-```
-
-The lease excludes a second owner. While Build runs, refresh its liveness at
-least once per 60 seconds and before and after each dispatch round with:
-
-```text
-st-integrate.sh lease-heartbeat <root> <feature-key> --owner <owner>
-```
-
-A different owner receiving an active lease response reports `BUSY`, not `BLOCKED`.
-The published expiry is 300 seconds. After the recorded heartbeat is
-that old, a new invocation may use the ledger's last owner as an expected value
-and atomically recover the expired lease:
-
-```text
-st-integrate.sh lease-recover <root> <feature-key> --owner <new-owner> --expected-owner <old-owner> --stale-after 300
-```
-
-Recovery rechecks the owner and heartbeat while holding the lease transition
-guard. It fails when the owner changed or the prior controller is still live;
-the old controller must stop if its next heartbeat reports a new owner. Release
-the lease on normal `DONE` or evidence-backed `BLOCKED`; preserve its owner,
-heartbeat, and ledger facts when the host interrupts the controller.
-
-Maintain an append-only controller ledger beneath the Root Repository's real
-Git common directory, never inside a Repository worktree. Derive its directory
-from the feature key with a portable checksum, reject control characters, and
-record one tab-separated transition at a time with these fields:
+Keep an append-only, tab-separated ledger beneath the Root Repository's Git
+common directory, in a directory derived from a checksum of the feature key.
+Write each transition by renaming a complete replacement file into place:
 
 ```text
 sequence  owner  event  ticket  attempt  expected_head  observed_head  result
 ```
 
-The supported events are `START`, `DISPATCH`, `REQUEUE`, `INTEGRATED`,
-`FINALIZE`, `DONE`, and `BLOCKED`. Write a replacement file in the same
-directory and rename it into place so an ordinary interruption leaves either
-the prior record set or the complete next record set. The ledger is local
-controller state, not a source-code commit and not an execution command.
+Events: `START`, `DISPATCH`, `REQUEUE`, `RULING`, `INTEGRATED`, `FINALIZE`,
+`DONE`, `BLOCKED`. The ledger records retry counts and rulings; it is not
+evidence of completion.
 
-On every start or resume, rebuild state in this order:
+## Schedule the frontier
 
-1. validate the Current Contract and tickets again;
-2. read ticket status, branch evidence, and each Result;
-3. compare every recorded base, ticket head, prepared head, and integrated head
-   for every declared Repository with its real Git HEAD and ancestry; and
-4. use the ledger only to recover the last attempted transition and retry
-   count.
+Each round, run `st-tickets.sh frontier <feature>` and dispatch that snapshot in
+stable ID order up to available capacity. Tickets that share an active
+Repository worktree do not run in parallel. Each dispatch is one complete
+`superteam-implement` unit in `build` mode.
 
-Ticket/Result content and observed Git history outrank a stale ledger entry. A
-`resolved` label without its Result and reachable integrated head is invalid,
-not completed. A promoted head whose tracking Result was interrupted is
-resumed through the same `superteam-implement` tracking flow instead of being
-implemented twice.
+When a unit finishes, check that its Result, per-Repository branch and head
+fields, `resolved` state, and Git ancestry agree before appending
+`INTEGRATED`. Recompute the frontier from the files after every round.
 
-## Schedule the dependency frontier
+Choose a model for every agent you start (implementer, recovery implementer,
+finalizer) and pass it to `superteam-implement` and the finalizer prompt
+explicitly. Match the model to the work rather than inheriting the session
+default.
 
-For each controller round, compute the runnable set with
-`st-tickets.sh frontier <feature>`. Dispatch only that complete snapshot of
-ticket IDs, in stable ID order, up to the currently available agent capacity.
-Independent frontier tickets may run in parallel; tickets with a blocker or
-any shared active Repository worktree never do.
+## Rulings, retries, and blocks
 
-Every dispatch is one complete `superteam-implement` unit in `build` mode. The
-unit owns the fixed-base Implement -> Review -> Fix -> Integrate sequence,
-including fresh independent Standards and Spec reviewers, all finding
-decisions, conflict resolution, verification, commits, and its structured
-Result. The Build controller validates that terminal package but does not review code or adjudicate findings.
-It also does not integrate ticket code or create claim, Result, or resolved
-tracking commits on the Implement unit's behalf.
+Keep the feature moving. When the Current Contract is ambiguous or two tickets
+conflict, and a reasonable reading is reversible and stays within the
+Repository Set, decide it, append a `RULING` with the decision and its basis,
+pass the ruling to the affected unit, and continue. Every ruling is listed in
+the feature Result.
 
-Validate completed units in stable ticket-ID order. After an Implement unit's
-own all-prepare and recoverable stable-order promotion, observe every declared
-canonical feature HEAD again and append `INTEGRATED` only when its ticket
-Result, per-Repository branch/head fields, resolved state, and Git ancestry
-agree. A partially promoted Repository Set remains inside that Implement unit;
-the controller records its terminal evidence but does not adjudicate or finish
-the integration. Recompute `st-tickets.sh frontier` after the complete round;
-never schedule a dependent from an in-memory prediction.
+- Missing capacity leaves a ticket queued. An incomplete unit gets one fresh
+  recovery implementer from the same stable branches and attempt. A transient
+  failure appends `REQUEUE` with an incremented attempt.
+- A compare-and-swap drift is handled inside the Implement unit.
+- `BLOCKED` is for what a ruling cannot settle: a destructive or irreversible
+  choice, a need for authority outside the local Repository Set, a contradiction
+  that changes what users get, a conflict the conflict workflow could not
+  resolve, or a second incomplete implementer. Continue independent tickets and
+  report each blocked ticket with the dependants it holds back.
 
-## Retry and terminal classification
+## Finalize
 
-Use deterministic retry and requeue rules rather than treating every unsuccessful
-turn as a feature failure:
+When `st-tickets.sh feature-status <feature>` reports every ticket resolved,
+fill [finalizer-prompt.md](finalizer-prompt.md) for one fresh finalizer with the
+Current Contract, tickets and Results, each Repository's feature branch, base,
+and HEAD, the feature diff, the declared full verification, and a report path
+outside every worktree. Check its report against the files and Git state
+yourself.
 
-- no current agent capacity leaves the ticket queued; append no failure and
-  retry the same frontier when capacity returns;
-- an incomplete worker session gets one fresh recovery implementer in the same
-  stable worktree, branch, fixed base, and attempt;
-- Review findings remain inside the same Implement unit until fixed, scoped
-  re-review succeeds, or that unit reaches its documented five-round limit;
-- a compare-and-swap drift refreshes from the observed Repository head,
-  preserves both histories, reruns the affected verification and both review
-  axes, then resumes the recorded stable-order promotion without re-promoting
-  completed members;
-- a transient controller or agent failure appends `REQUEUE` with the same
-  ticket and incremented attempt, then returns it to the stable queue; and
-- external authority, invalid or contradictory Current Contract state, an
-  unresolved conflict after the independent conflict workflow, or a second
-  incomplete implementer produces evidence-backed `BLOCKED`.
+- `REQUEUE`: resume the named Implement unit and return to the frontier loop.
+- `DONE` or evidence-backed `BLOCKED`: in a stable tracking worktree, write
+  `result.md` starting with the [completion summary](../superteam-implement/result-format.md),
+  then the root base and head, ticket summaries, verification, finalizer
+  report, retries, rulings, and remaining concerns. Commit only the feature
+  tracking directory and compare-and-swap promote it to the canonical feature
+  branch. `DONE` exists once the promoted branch contains `result.md` and the
+  recorded heads still agree.
 
-Never classify agent capacity, an active other controller, or a first
-recoverable worker/CAS failure as `BLOCKED`. Continue independent frontier work
-when one ticket is blocked, then report the blocked ticket and every dependant
-that cannot become runnable.
+Then remove clean controller-owned worktrees, keep canonical branches and any
+dirty or blocked worktree, and release the lease.
 
-## Finalize from evidence
-
-Only when `st-tickets.sh feature-status <feature>` reports all tickets resolved,
-fill `finalizer-prompt.md` and start one fresh feature finalizer. Supply the
-Current Contract, every ticket and Result, each canonical Repository feature
-branch with its base and current HEAD, the complete multi-Repository feature
-diff package, declared full verification, and a report path outside every
-Repository worktree.
-
-The finalizer independently checks evidence and runs full verification; it does
-not implement or review ticket code. Validate its report against the files and
-real Git state yourself. A green log must not replace a missing Result,
-unreachable integrated head, dirty canonical worktree, or incomplete
-acceptance evidence.
-
-If the finalizer proposes `REQUEUE`, resume the named Implement unit from its
-stable recovery facts and return to the frontier loop. Do not write a terminal
-feature Result for a recoverable evidence gap. Only `DONE` or an
-evidence-backed `BLOCKED` proposal may continue to terminal tracking.
-
-On success, create `result.md` in a stable tracking worktree with the finalizer's
-validated [completion summary](../superteam-implement/result-format.md), outcome
-`DONE`, completion time, canonical root base and head, ticket Result summary,
-full-verification evidence, finalizer report, retries, and remaining concerns.
-Stage and commit exactly the feature tracking directory, then compare-and-swap
-promote that tracking commit to the canonical feature branch. `DONE` exists
-only after the promoted branch contains `result.md` and all recorded heads
-still agree. On a terminal failure, write the same evidence with outcome
-`BLOCKED` and the exact authority, contract, conflict, or repeated-failure
-reason.
-
-Remove only clean controller-owned temporary worktrees after terminal state.
-Keep canonical feature branches and any dirty or blocked recovery worktree.
-Release the controller lease only after the terminal tracking commit is
-reachable.
-
-## Side-effect boundary
-
-Build may create local controller ledger entries, feature-finalization branches
-and worktrees, and the terminal feature Result in `root`. Scheduled Implement
-units own their exact ticket tracking and per-Repository implementation commits.
-Build itself must not stage or commit those files, a submodule gitlink, another
-task or knowledge path, unrelated Repository files, or a worker's dirty
-worktree. Report any observed submodule parent dirty state. Do not clone, run
-Project Pull, push, create a pull request, call a remote service, or send a message.
-Do not create, change, or remove a remote.
+Build works only locally: it does not run Project Pull, clone, push, open pull
+requests, change remotes, or send messages.

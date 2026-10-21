@@ -78,10 +78,7 @@ inspect every current ticket before preparing the full candidate.
 If validation or installation fails, report the error and leave the existing
 ticket set as the Current Plan. Do not fall back to incremental ticket edits.
 
-## Side-effect Boundary
+## Scope
 
-A Plan request authorizes only the feature-local `tickets/` update described
-above. It does not authorize Build, implementation, worktrees, commits, pushes,
-pull requests, remotes, messages, PRD/Spec changes, or knowledge updates. Never
-invoke `superteam-build` automatically. The user can request Build separately
-after reviewing the written tickets or ask for another Plan revision.
+Plan changes only the feature's `tickets/`. Build starts only when the user
+asks for it separately.

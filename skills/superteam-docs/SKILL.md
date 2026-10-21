@@ -41,6 +41,9 @@ to zero documentation impact.
   directories.
 - Make the smallest accurate edit that preserves useful authorship and
   structure.
+- Treat a dated, commit-cited statement as true at that commit. When the
+  audited change makes it stale, add a new dated statement citing the audited
+  head and mark the old one superseded.
 - Keep PRDs and Specs in the configured task path.
 - Report scanned Repository IDs, impacts, edits, and unresolved uncertainty.
 

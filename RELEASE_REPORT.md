@@ -1,6 +1,6 @@
 # Superteam Release Status
 
-- Version: `1.0.0`
+- Version: `1.1.0`
 - Native macOS: PENDING
 - Containerized Ubuntu 24.04: PENDING
 - Remote CI: NOT RUN

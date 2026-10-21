@@ -72,7 +72,7 @@ for metadata_file in \
   .qoder-plugin/plugin.json \
   .agents/plugins/marketplace.json; do
   require_text "$metadata_file" '"name": "superteam"'
-  require_text "$metadata_file" '"version": "1.0.0"'
+  require_text "$metadata_file" '"version": "1.1.0"'
   require_text "$metadata_file" '"name": "Superteam Contributors"'
   forbid_text "$metadata_file" '"(repository|homepage|issues)"[[:space:]]*:'
   forbid_text "$metadata_file" 'https?://'
@@ -187,7 +187,7 @@ bash "$release_root/scripts/st-release-report-audit.sh" \
   "$release_root/RELEASE_REPORT.md" || \
   fail 'release report evidence is inconsistent'
 
-printf '%s\n' 'VERSION: 1.0.0'
+printf '%s\n' 'VERSION: 1.1.0'
 printf '%s\n' 'HOSTS: Codex, Claude Code, Qoder CLI'
 printf '%s\n' 'CHECKS: metadata, bilingual docs, legal files, policies, sensitive data, paths, binary assets, CI'
 printf '%s\n' 'RESULT: PASS'

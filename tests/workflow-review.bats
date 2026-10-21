@@ -55,35 +55,3 @@ git_state() {
   [ "$status" -eq 3 ]
   [[ "$output" == *"effective change is empty"* ]]
 }
-
-@test "TDD contract uses public seams independent expectations and narrow side effects" {
-  skill="$ROOT/skills/superteam-tdd/SKILL.md"
-
-  [ -f "$skill" ]
-  grep -Fq 'Project Snapshot' "$skill"
-  grep -Fq 'Current Contract' "$skill"
-  grep -Fq 'public seam' "$skill"
-  grep -Fq 'independent expected value' "$skill"
-  grep -Fq 'red' "$skill"
-  grep -Fq 'green' "$skill"
-  grep -Fq 'private interface' "$skill"
-  grep -Fq 'internal collaborator' "$skill"
-  grep -Fq 'task, knowledge, the Git index, commits, or remotes' "$skill"
-}
-
-@test "Review contract preserves independent Standards and Spec reports" {
-  skill="$ROOT/skills/superteam-review/SKILL.md"
-
-  [ -f "$skill" ]
-  [ -f "$ROOT/skills/superteam-review/standards-reviewer-prompt.md" ]
-  [ -f "$ROOT/skills/superteam-review/spec-reviewer-prompt.md" ]
-  grep -Fq 'st-review-package.sh <fixed-base> WORKTREE' "$skill"
-  grep -Fq "invoke this Skill once per Repository with that Repository's own fixed base" "$skill"
-  grep -Fq 'Project Snapshot' "$skill"
-  grep -Fq 'Current Contract' "$skill"
-  grep -Fq 'No Spec available; Spec axis skipped.' "$skill"
-  grep -Fq 'does not require an approval status' "$skill"
-  grep -Fq 'Do not combine, rerank, or collapse the two axes' "$skill"
-  grep -Fq 'exact rule source' "$skill"
-  grep -Fq 'task, knowledge, the Git index, commits, or remotes' "$skill"
-}

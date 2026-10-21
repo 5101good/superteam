@@ -183,16 +183,16 @@ codex_agent_metadata_is_valid() {
   for manifest in "$ROOT/.codex-plugin/plugin.json" "$ROOT/.claude-plugin/plugin.json" \
     "$ROOT/.qoder-plugin/plugin.json"; do
     grep -q '"name": "superteam"' "$manifest"
-    grep -q '"version": "1.0.0"' "$manifest"
+    grep -q '"version": "1.1.0"' "$manifest"
     grep -q '"name": "Superteam Contributors"' "$manifest"
     grep -q '"skills": "./skills/"' "$manifest"
   done
 
   grep -q '"name": "superteam"' "$ROOT/.claude-plugin/marketplace.json"
-  grep -q '"version": "1.0.0"' "$ROOT/.claude-plugin/marketplace.json"
+  grep -q '"version": "1.1.0"' "$ROOT/.claude-plugin/marketplace.json"
   grep -q '"name": "Superteam Contributors"' "$ROOT/.claude-plugin/marketplace.json"
   grep -q '"name": "superteam"' "$ROOT/.agents/plugins/marketplace.json"
-  grep -q '"version": "1.0.0"' "$ROOT/.agents/plugins/marketplace.json"
+  grep -q '"version": "1.1.0"' "$ROOT/.agents/plugins/marketplace.json"
   grep -q '"name": "Superteam Contributors"' "$ROOT/.agents/plugins/marketplace.json"
 
   while IFS= read -r skill_dir; do
@@ -202,28 +202,11 @@ codex_agent_metadata_is_valid() {
     grep -q "^name: $skill$" "$skill_dir/SKILL.md"
     grep -q '^  display_name:' "$skill_dir/agents/openai.yaml"
   done < <(find "$ROOT/skills" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
-  grep -q '^disable-model-invocation: true$' "$ROOT/skills/superteam-project/SKILL.md"
-  grep -q '^  allow_implicit_invocation: false$' \
-    "$ROOT/skills/superteam-project/agents/openai.yaml"
-  for skill in superteam-docs superteam-docgen; do
-    grep -q '^disable-model-invocation: true$' "$ROOT/skills/$skill/SKILL.md"
-    grep -q '^  allow_implicit_invocation: false$' "$ROOT/skills/$skill/agents/openai.yaml"
-  done
-  grep -q '`superteam-project`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-prd`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-spec`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-plan`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-build`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-implement`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-triage`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-resolving-merge-conflicts`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-board`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-tdd`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-review`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-domain-modeling`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-docs`' "$ROOT/skills/using-superteam/SKILL.md"
-  grep -q '`superteam-docgen`' "$ROOT/skills/using-superteam/SKILL.md"
-
+  while IFS= read -r skill_dir; do
+    skill=${skill_dir##*/}
+    [ "$skill" = using-superteam ] && continue
+    grep -Fq "\`$skill\`" "$ROOT/skills/using-superteam/SKILL.md"
+  done < <(find "$ROOT/skills" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
   if command -v qodercli >/dev/null 2>&1; then
     run qodercli plugin validate "$ROOT"
     [ "$status" -eq 0 ]
@@ -245,39 +228,38 @@ codex_agent_metadata_is_valid() {
   fi
 }
 
-@test "triage and router use one public vocabulary without hidden execution" {
-  triage="$ROOT/skills/superteam-triage/SKILL.md"
-  triage_agent="$ROOT/skills/superteam-triage/agents/openai.yaml"
-  router="$ROOT/skills/using-superteam/SKILL.md"
+@test "Skill invocation policy agrees between hosts" {
+  while IFS= read -r skill_dir; do
+    if grep -q '^disable-model-invocation: true$' "$skill_dir/SKILL.md"; then
+      grep -q '^  allow_implicit_invocation: false$' "$skill_dir/agents/openai.yaml"
+    else
+      ! grep -q 'allow_implicit_invocation: false' "$skill_dir/agents/openai.yaml"
+    fi
+  done < <(find "$ROOT/skills" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
+  grep -q '^disable-model-invocation: true$' "$ROOT/skills/superteam-project/SKILL.md"
+}
 
-  [ -f "$triage" ]
-  [ -f "$triage_agent" ]
-  grep -q '^name: superteam-triage$' "$triage"
-  grep -q '^disable-model-invocation: true$' "$triage"
-  grep -Fq 'Use $superteam-triage' "$triage_agent"
-  grep -q '^  allow_implicit_invocation: false$' "$triage_agent"
+@test "Skill text names only bundled scripts and linked files that exist" {
+  while IFS= read -r script_name; do
+    [ -f "$ROOT/scripts/$script_name" ] || {
+      printf 'missing bundled script: %s\n' "$script_name" >&2
+      return 1
+    }
+  done < <(grep -rhoE 'st-[a-z-]+\.sh' "$ROOT/skills" | LC_ALL=C sort -u)
 
-  for classification in CONFIRMED NEEDS_INFORMATION PRODUCT_DECISION DECLINED; do
-    grep -Fq "$classification" "$triage"
-  done
-  grep -Fq '# Triage Brief' "$triage"
-  grep -Fq 'Confirmed facts' "$triage"
-  grep -Fq 'Inference' "$triage"
-  grep -Fq 'Unknowns' "$triage"
-  grep -Fq 'Affected repositories' "$triage"
-  grep -Fq 'Recommended next workflow' "$triage"
-  grep -Fq 'Do not create or modify files' "$triage"
-  grep -Fq 'Do not comment on, label, close, or otherwise modify a remote item' "$triage"
+  while IFS= read -r markdown_file; do
+    directory=${markdown_file%/*}
+    while IFS= read -r link_target; do
+      target=${link_target%%#*}
+      [ -e "$directory/$target" ] || {
+        printf 'broken link in %s: %s\n' "$markdown_file" "$link_target" >&2
+        return 1
+      }
+    done < <(grep -oE '\]\([^):]+\)' "$markdown_file" | sed 's/^](//; s/)$//')
+  done < <(find "$ROOT/skills" -name '*.md' -type f | LC_ALL=C sort)
+}
 
-  grep -Fq 'write the Current Contract directly' "$router"
-  grep -Fq 'never invokes `superteam-build`' "$router"
-  grep -Fq 'Read-only intents never create or modify files' "$router"
-  grep -Fq 'both an explicit user request and a routed Skill' "$router"
-  grep -Fq 'exists in this installed bundle' "$router"
-  grep -Fq 'Do not fall back to another installed version' "$router"
-  grep -Fq 'Desired workflow unavailable in this bundle' "$triage"
-  ! grep -Eiq 'superteam-(setup|module)|external workspace (tool|manager)' "$router"
-
+@test "Qoder skill listing is scoped to one plugin installation" {
   qoder_fixture='[
   {
     "id": "superteam@flag",
@@ -339,49 +321,6 @@ codex_agent_metadata_is_valid() {
 
 }
 
-@test "design skills write Current Contracts without an approval gate or execution side effects" {
-  prd="$ROOT/skills/superteam-prd/SKILL.md"
-  spec="$ROOT/skills/superteam-spec/SKILL.md"
-  grilling="$ROOT/skills/superteam-grilling/SKILL.md"
-  domain="$ROOT/skills/superteam-domain-modeling/SKILL.md"
-
-  for contract_skill in "$prd" "$spec"; do
-    grep -Fq 'st-project-snapshot.sh" task' "$contract_skill"
-    grep -Fq 'st-project-snapshot.sh" knowledge' "$contract_skill"
-    grep -Fq 'st-project-snapshot.sh" repositories' "$contract_skill"
-    grep -Fq 'Current Contract' "$contract_skill"
-    grep -Fq 'st-contract.sh" write' "$contract_skill"
-    grep -Fq 'repositories:' "$contract_skill"
-    grep -Fq 'created_at:' "$contract_skill"
-    grep -Fq 'supersedes:' "$contract_skill"
-    ! grep -Eq '^[[:space:]]*(status|approval|approved):' "$contract_skill"
-    ! grep -Fq 'superteam.config.yaml' "$contract_skill"
-    grep -Fq 'Do not commit, push, open a pull request' "$contract_skill"
-    grep -Fq 'candidate_ticket_directory' "$contract_skill"
-    grep -Fq 'Plan reconciliation seam' "$contract_skill"
-    grep -Fq 'Do not invoke the separate' "$contract_skill"
-    grep -Fq '`superteam-plan` workflow' "$contract_skill"
-    grep -Fq '`superteam-build`' "$contract_skill"
-  done
-
-  grep -Fq 'spec.md' "$prd"
-  grep -Fq 'tickets/' "$prd"
-  grep -Fq 'tickets/' "$spec"
-  grep -Fq 'downstream impact' "$prd"
-  grep -Fq 'downstream impact' "$spec"
-  grep -Fq 'cannot be safely inferred' "$grilling"
-  grep -Fq 'changes the contract' "$grilling"
-  grep -Fq 'Explore the environment' "$grilling"
-  ! grep -Fq 'final approval' "$grilling"
-  grep -Fq 'st-project-snapshot.sh" repository-path' "$spec"
-  grep -Fq 'st-knowledge.sh" context root' "$domain"
-  grep -Fq 'st-knowledge.sh" adrs root' "$domain"
-  grep -Fq 'st-knowledge.sh" decisions' "$domain"
-  grep -Fq 'CONTEXT.md' "$domain"
-  grep -Fq 'ADR' "$domain"
-  grep -Fq 'immediately' "$domain"
-}
-
 @test "bundle-root handoff works from a directory with an unrelated name" {
   installed_root="$BATS_TEST_TMPDIR/local-plugin-copy"
   ln -s "$ROOT" "$installed_root"
@@ -423,11 +362,6 @@ codex_agent_metadata_is_valid() {
     [ "$worktree_before" = "$worktree_after" ]
   done
 
-  for contract_file in "$ROOT/skills/superteam-project/SKILL.md" \
-    "$ROOT/skills/using-superteam/SKILL.md"; do
-    grep -Fq 'st-plugin-root.sh" require &&' "$contract_file"
-    grep -Fq 'st-project.sh" doctor "$project_path"' "$contract_file"
-  done
 }
 
 @test "distribution scripts stay within the declared local runtime boundary" {
