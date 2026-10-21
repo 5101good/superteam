@@ -47,23 +47,14 @@ separate workspace orchestrator.
 
 ## Workflow boundaries
 
-- `superteam-prd`, `superteam-spec`, and `superteam-plan` finish necessary fact
-  finding and material decisions, then write the Current Contract directly.
-  They do not pause for a separate approval status. A routed
-  `superteam-plan` never invokes `superteam-build`; Build begins only from a
-  separate explicit request.
-- `superteam-triage`, `superteam-board`, and direct `superteam-review` requests
-  are read-only. Read-only intents never create or modify files, the Git index,
-  commits, worktrees, tracker state, or remotes.
-- Docs and Docgen run only when the user explicitly requests their workflow.
-  Domain Modeling writes only within its own explicitly selected contract; it
-  is not an automatic follow-up or Build gate.
-- A remote write requires both an explicit user request and a routed Skill
-  whose own contract authorizes that exact remote effect. Routing alone never
-  grants push, pull-request, issue, message, or other remote-write authority.
-- Local code, ticket, Git, and Project changes remain bounded by the selected
-  Skill. Do not infer implementation authority from diagnosis, design, status,
-  or review intent.
+- PRD, Spec, and Plan write the Current Contract directly, with no approval
+  step. Plan never starts Build; Build begins from a separate request.
+- Triage, Board, and direct Review are read-only.
+- Docs and Docgen run only on explicit request. Domain Modeling is not an
+  automatic gate.
+- Each Skill's authority ends at its own result. Routing never grants push,
+  pull-request, issue, message, or other remote-write authority; that needs an
+  explicit user request and a Skill that performs exactly that effect.
 
 ## Runtime
 

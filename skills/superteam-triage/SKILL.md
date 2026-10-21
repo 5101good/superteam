@@ -94,10 +94,7 @@ and add `Desired workflow unavailable in this bundle: <skill-name>` to the
 reason. Do not fall back to another installed Superteam version or an older
 contract. The recommendation does not invoke a workflow.
 
-## Side-effect boundary
+## Scope
 
-Triage is read-only. Do not create or modify files, tickets, tracker state, the
-Git index, commits, branches, worktrees, remotes, or messages.
-Do not comment on, label, close, or otherwise modify a remote item. A remote
-write requires a new explicit user request and a separately invoked Skill whose
-own contract grants that exact operation.
+Triage is read-only: no file, Git, tracker, or remote changes. Acting on the
+brief is a separate request.

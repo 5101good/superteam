@@ -34,6 +34,8 @@ Return two preserved sections in this order:
 
 Use `Critical`, `Important`, or `Minor` independently within each axis. End each section with its own finding count and highest severity. Do not combine, rerank, or collapse the two axes into one verdict.
 
-## Side-effect boundary
+## Scope
 
-Reviewers may inspect files and run at most a focused read-only check needed to resolve concrete uncertainty. Direct invocation must not modify task, knowledge, the Git index, commits, or remotes. Do not write review reports into a repository unless a separate caller explicitly authorizes that destination.
+Review is read-only. Reviewers may run a focused read-only check to settle a
+concrete question. Write a report into a repository only when the caller names
+that destination.

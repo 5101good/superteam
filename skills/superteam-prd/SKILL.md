@@ -103,11 +103,8 @@ Never silently continue with an old Spec or ticket set after a material PRD
 change. Never put a claimed, blocked, or resolved ticket ID in the candidate or
 rewrite its file.
 
-## Side-effect Boundary
+## Scope
 
-Writing `prd.md`, or atomically reconciling its existing ticket plan during a
-revision, is the only workflow mutation authorized by this skill, apart from
-immediate domain-model updates explicitly covered by `superteam-domain-modeling`.
-Do not create `spec.md` or an initial ticket plan. Do not invoke the separate
-`superteam-plan` workflow or `superteam-build`.
-Do not commit, push, open a pull request, create a remote, or send messages.
+This Skill writes `prd.md` (with its reconciled ticket plan on revision) and
+any domain-model updates from `superteam-domain-modeling`. Spec, Plan, Build,
+commits, and remote effects are separate requests.
