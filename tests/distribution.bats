@@ -183,16 +183,16 @@ codex_agent_metadata_is_valid() {
   for manifest in "$ROOT/.codex-plugin/plugin.json" "$ROOT/.claude-plugin/plugin.json" \
     "$ROOT/.qoder-plugin/plugin.json"; do
     grep -q '"name": "superteam"' "$manifest"
-    grep -q '"version": "1.0.0"' "$manifest"
+    grep -q '"version": "1.1.0"' "$manifest"
     grep -q '"name": "Superteam Contributors"' "$manifest"
     grep -q '"skills": "./skills/"' "$manifest"
   done
 
   grep -q '"name": "superteam"' "$ROOT/.claude-plugin/marketplace.json"
-  grep -q '"version": "1.0.0"' "$ROOT/.claude-plugin/marketplace.json"
+  grep -q '"version": "1.1.0"' "$ROOT/.claude-plugin/marketplace.json"
   grep -q '"name": "Superteam Contributors"' "$ROOT/.claude-plugin/marketplace.json"
   grep -q '"name": "superteam"' "$ROOT/.agents/plugins/marketplace.json"
-  grep -q '"version": "1.0.0"' "$ROOT/.agents/plugins/marketplace.json"
+  grep -q '"version": "1.1.0"' "$ROOT/.agents/plugins/marketplace.json"
   grep -q '"name": "Superteam Contributors"' "$ROOT/.agents/plugins/marketplace.json"
 
   while IFS= read -r skill_dir; do
